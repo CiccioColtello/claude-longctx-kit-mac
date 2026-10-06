@@ -2,12 +2,13 @@
 
 Deterministic Claude Code hooks that make **long sessions and compactions survivable** on macOS.
 
-> **BETA — largely not executed on macOS.** The hooks are PowerShell and the logic is shared with
-> the Windows build; the PowerShell half has run twice on a macOS runner via CI on 2026-10-06 and
-> exposed two Windows-only assumptions in the selftest itself (null `$env:TEMP`; a lock simulation
-> that cannot fail on Unix, where locks are advisory), both fixed; re-run pending. The shell
-> adapters have not run on a Mac yet. Read [Status & verification](#status--verification) before
-> trusting it on real work.
+> **BETA — CI-verified, not yet run on-device.** The hooks are PowerShell and the logic is shared
+> with the Windows build; the PowerShell half now runs green on a macOS runner via CI (run 3,
+> 2026-10-06: selftest 44 PASS / 0 FAIL, smoke harness 22 PASS / 0 FAIL, `bash -n` on the three
+> adapters — the first macOS execution of all three), after runs 1-2 had exposed two Windows-only
+> assumptions in the selftest itself (null `$env:TEMP`; a lock simulation that cannot fail on Unix,
+> where locks are advisory), both fixed. The shell adapters have not run on a Mac yet. Read
+> [Status & verification](#status--verification) before trusting it on real work.
 
 Long sessions lose their working state at the compaction boundary: the transcript is summarized,
 details are dropped, and the next session starts from a lossy memory of what happened. This kit moves
@@ -98,7 +99,7 @@ beta — see [Security & privacy](#security--privacy) and `KNOWN-ISSUES.md`.
 | **Disk** | The kit is small (core: 30 files, ~0.25 MB; the whole repository stays under 1 MB). `.agent/` grows with use: one markdown snapshot per compaction plus rotated logs. |
 | **Rights** | None beyond your own user account. The kit installs everything under `~/.claude/`. Installing `pwsh` via Homebrew is the only extra step (as a pkg-based cask, Homebrew may prompt for your password during that install); the kit itself never escalates. |
 | **Optional** | [Ollama](https://ollama.com) for the local digest only. Without it every hook still works (see [Local digest](#local-digest-optional)). |
-| **Tested with** | Nothing on macOS yet: **BETA, not executed.** The Windows path is tested on Windows 11 with Claude Code 2.1.291 — see [Status & verification](#status--verification). |
+| **Tested with** | **BETA, not yet run on-device.** CI-verified on a macOS runner (run 3, 2026-10-06: selftest 44/0, smoke 22/0, shell syntax clean); the `.sh` adapters have not been executed on a Mac yet. The Windows path is tested on Windows 11 with Claude Code 2.1.291 — see [Status & verification](#status--verification). |
 
 ---
 
@@ -445,17 +446,19 @@ here; the shell rules are the ones you are likely to meet.
 
 ## Status & verification
 
-- **macOS: BETA, largely not executed.** The shell adapters have not run on a Mac; the merge-engine
-  `-SelfTest` has run twice on a macOS runner via CI on 2026-10-06 and exposed two Windows-only
-  assumptions in the selftest itself (a null `$env:TEMP` sandbox root, then the case-14 lock
-  simulation — FileShare locks are advisory on Unix), both fixed at class level; re-run pending.
-  `TEST-PLAN-MAC.md` records the intended validation steps: what to run, in what order, and what a
-  green result looks like. Until that plan is executed and green, treat this build as unvalidated.
-  Partial mitigation, measured on Windows: this repository's PowerShell half is byte-identical to the
-  Windows one (`tools/verify-parity.ps1`: 31/31 core files, exit 0 — the two `install.ps1`/
-  `uninstall.ps1` copies included), its `-SelfTest` matrix and smoke harness run green here
-  (44/0 and 22/0), and the shipped security probe passes against this tree under both Windows
-  PowerShell 5.1 and pwsh 7 (19/0) — what remains untested is what only a Mac can exercise.
+- **macOS: BETA, CI-verified on a macOS runner, not yet run on-device.** The shell adapters have
+  not been executed on a Mac; the merge-engine `-SelfTest` (44 PASS / 0 FAIL), the smoke harness
+  (22 PASS / 0 FAIL) and `bash -n` on the three shell adapters now run green on a real macOS runner
+  (CI run 3, 2026-10-06 — the first macOS execution of all three). Runs 1-2 had exposed two
+  Windows-only assumptions in the selftest itself (a null `$env:TEMP` sandbox root, then the case-14
+  lock simulation — FileShare locks are advisory on Unix), both fixed at class level.
+  `TEST-PLAN-MAC.md` records the intended on-device validation steps: what to run, in what order,
+  and what a green result looks like. Until that plan is executed and green on a Mac, treat this
+  build as unvalidated on-device. Partial mitigation, measured on Windows: this repository's
+  PowerShell half is byte-identical to the Windows one (`tools/verify-parity.ps1`: 31/31 core files,
+  exit 0 — the two `install.ps1`/`uninstall.ps1` copies included), its `-SelfTest` matrix and smoke
+  harness run green here (44/0 and 22/0), and the shipped security probe passes against this tree
+  under both Windows PowerShell 5.1 and pwsh 7 (19/0).
 - **Windows: tested** (in the Windows repository): Windows 11 with Claude Code 2.1.291 under both
   Windows PowerShell 5.1 and PowerShell 7: hook contract,
   settings-merge `-SelfTest` matrix (44 checks, including the `KitRoot` home-resolution cases
@@ -467,11 +470,12 @@ here; the shell rules are the ones you are likely to meet.
   probe (`core/tests/probe-hardening.ps1`, 19 checks: deny-gate rule ids including the quote-split
   evasions, the failure-log masking, and the `KitRoot` ownership / settings-dir refusal in both
   installers).
-- **CI: executed twice (2026-10-06), re-run pending.** `.github/workflows/ci.yml` (matrix:
-  `windows-latest`, `macos-latest`): the Windows legs were green in both runs; the macOS legs went
-  red on two Windows-only assumptions inside the selftest itself (null `$env:TEMP`, then the
-  case-14 lock simulation), fixed since. It remains an executable specification of the intended
-  matrix; no secrets and no deploy steps.
+- **CI: executed three times (2026-10-06), green on both legs at run 3.** `.github/workflows/ci.yml`
+  (matrix: `windows-latest`, `macos-latest`): runs 1-2 exposed two Windows-only assumptions inside
+  the selftest (null `$env:TEMP`, then the case-14 lock simulation), fixed since; at run 3 every
+  step passed on both legs — this leg ran the selftest 44/0, the smoke harness 22/0 and `bash -n`
+  on macOS for the first time. It remains an executable specification of the intended matrix and
+  is not pinning-proof; no secrets and no deploy steps.
 - **Coverage and remainder (COPERTURA / RESTO).** What is covered, with which test, and what is not
   covered is stated in `COPERTURA-RESTO.md` (the verification ledger), `KNOWN-ISSUES.md`,
   `ANALISI-USO.md` and `TEST-PLAN-MAC.md`. Nothing in this README should be read as a stronger claim
