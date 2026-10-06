@@ -2,9 +2,10 @@
 
 Deterministic Claude Code hooks that make **long sessions and compactions survivable** on macOS.
 
-> **BETA — not executed on macOS.** The hooks are PowerShell and the logic is shared with the
-> Windows build, but this macOS leg has never been run on a Mac. Read
-> [Status & verification](#status--verification) before trusting it on real work.
+> **BETA — largely not executed on macOS.** The hooks are PowerShell and the logic is shared with
+> the Windows build; the PowerShell half first ran on a macOS runner via CI on 2026-10-06 (red on a
+> null `$env:TEMP`, class fixed since; re-run pending) and the shell adapters have not run on a Mac
+> yet. Read [Status & verification](#status--verification) before trusting it on real work.
 
 Long sessions lose their working state at the compaction boundary: the transcript is summarized,
 details are dropped, and the next session starts from a lossy memory of what happened. This kit moves
@@ -442,9 +443,11 @@ here; the shell rules are the ones you are likely to meet.
 
 ## Status & verification
 
-- **macOS: BETA, not executed.** The shell adapters and everything on this leg have never been run on a
-  Mac. `TEST-PLAN-MAC.md` records the intended validation steps: what to run, in what order, and what
-  a green result looks like. Until that plan is executed and green, treat this build as unvalidated.
+- **macOS: BETA, largely not executed.** The shell adapters have not run on a Mac; the merge-engine
+  `-SelfTest` first ran on a macOS runner via CI on 2026-10-06 (red in 7 s on a null `$env:TEMP`,
+  class fixed in the same round; re-run pending). `TEST-PLAN-MAC.md` records the intended validation
+  steps: what to run, in what order, and what a green result looks like. Until that plan is executed
+  and green, treat this build as unvalidated.
   Partial mitigation, measured on Windows: this repository's PowerShell half is byte-identical to the
   Windows one (`tools/verify-parity.ps1`: 31/31 core files, exit 0 — the two `install.ps1`/
   `uninstall.ps1` copies included), its `-SelfTest` matrix and smoke harness run green here
@@ -461,9 +464,10 @@ here; the shell rules are the ones you are likely to meet.
   probe (`core/tests/probe-hardening.ps1`, 19 checks: deny-gate rule ids including the quote-split
   evasions, the failure-log masking, and the `KitRoot` ownership / settings-dir refusal in both
   installers).
-- **CI: staged, not executed.** `.github/workflows/ci.yml` (matrix: `windows-latest`, `macos-latest`)
-  has never run on GitHub Actions. It is committed as an executable specification of the intended
-  matrix; no secrets and no deploy steps.
+- **CI: executed once (2026-10-06), re-run pending.** `.github/workflows/ci.yml` (matrix:
+  `windows-latest`, `macos-latest`): the Windows leg was green; the macOS leg went red on the null
+  `$env:TEMP` class, fixed since. It remains an executable specification of the intended matrix; no
+  secrets and no deploy steps.
 - **Coverage and remainder (COPERTURA / RESTO).** What is covered, with which test, and what is not
   covered is stated in `COPERTURA-RESTO.md` (the verification ledger), `KNOWN-ISSUES.md`,
   `ANALISI-USO.md` and `TEST-PLAN-MAC.md`. Nothing in this README should be read as a stronger claim
